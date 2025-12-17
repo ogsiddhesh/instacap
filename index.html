@@ -95,7 +95,6 @@
             background: #266099;
         }
 
-        /* Silver Button Override for Copy */
         .btn-silver {
             background: linear-gradient(to bottom, #f2f2f2 0%, #e0e0e0 50%, #cecece 51%, #bfbfbf 100%) !important;
             color: #333 !important;
@@ -148,7 +147,6 @@
             text-shadow: none;
         }
 
-        /* --- FIXED FOOTER --- */
         .footer {
             position: fixed;   
             bottom: 0;         
@@ -227,8 +225,6 @@
         const resetBtn = document.getElementById('resetBtn');
         const inputSection = document.getElementById('inputSection');
 
-        // === THE HYDRA ENGINE: MULTIPLE PROXY NODES ===
-        // If Node 1 fails, it automatically jumps to Node 2, then Node 3.
         const PROXY_NODES = [
             "https://corsproxy.io/?",                 // Node 1: Fast, usually works
             "https://api.codetabs.com/v1/proxy?quest=", // Node 2: Reliable fallback
@@ -243,21 +239,15 @@
                 return;
             }
 
-            // UI Cleanup
             fetchBtn.disabled = true;
             fetchBtn.textContent = "Initializing...";
             outputArea.style.display = 'none';
 
-            // Clean URL (Remove query params to avoid tracking detection)
-            // e.g., converts .../p/xyz/?igshid=123 to .../p/xyz/
             let cleanUrl = rawUrl.split('?')[0]; 
-            // Ensure it ends with / so Instagram doesn't redirect
             if (!cleanUrl.endsWith('/')) cleanUrl += '/';
 
-            // Prepare the oEmbed target
             const oembedUrl = `https://www.instagram.com/api/v1/oembed/?url=${encodeURIComponent(cleanUrl)}`;
 
-            // === START REROUTING LOGIC ===
             let success = false;
 
             for (let i = 0; i < PROXY_NODES.length; i++) {
@@ -267,8 +257,6 @@
                 try {
                     const finalUrl = proxy + encodeURIComponent(oembedUrl);
                     
-                    // Attempt Fetch
-                    // We use 'signal' to timeout fast if a proxy hangs
                     const controller = new AbortController();
                     const timeoutId = setTimeout(() => controller.abort(), 8000); // 8 sec timeout
 
@@ -281,22 +269,19 @@
 
                     const data = await response.json();
                     
-                    // If we got here, IT WORKED!
                     let caption = data.title;
                     if (!caption) caption = "No caption found.";
 
-                    // Display Result
                     captionText.value = caption;
                     outputArea.style.display = 'block';
                     inputSection.style.display = 'none';
                     showStatus("Connection Established. Data Extracted.", "success");
                     
                     success = true;
-                    break; // Stop the loop, we are done!
+                    break; 
 
                 } catch (error) {
                     console.log(`Node ${i+1} failed:`, error);
-                    // Loop continues to next proxy...
                 }
             }
 
@@ -304,14 +289,12 @@
                 showStatus("All Nodes Blocked. Try again in 1 min or use Desktop.", "error");
             }
 
-            // Reset Button State
             fetchBtn.disabled = false;
             fetchBtn.textContent = "Get Caption";
         });
 
         copyBtn.addEventListener('click', () => {
             captionText.select();
-            // Modern Clipboard API with fallback
             if (navigator.clipboard && navigator.clipboard.writeText) {
                 navigator.clipboard.writeText(captionText.value);
             } else {
@@ -339,3 +322,4 @@
     </script>
 </body>
 </html>
+
