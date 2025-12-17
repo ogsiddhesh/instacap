@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>InstaFetcher 2.0 Beta</title>
+    <style>
+        /* --- WEB 2.0 "PREMIUM" AESTHETIC (2005-2010) --- */
+        body {
+            background: #e0e5ea; /* Classic light gray-blue background */
+            background-image: linear-gradient(to bottom, #f0f5f9 0%, #dbe2e8 100%);
+            font-family: "Verdana", "Tahoma", sans-serif;
+            color: #333;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 550px;
+            background: #ffffff;
+            border: 1px solid #b5b5b5;
+            border-radius: 8px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.15);
+            padding: 25px;
+            position: relative;
+        }
+
+        /* Glossy Header */
+        h1 {
+            font-family: "Trebuchet MS", sans-serif;
+            font-size: 24px;
+            color: #004a80;
+            margin-top: 0;
+            margin-bottom: 5px;
+            text-shadow: 1px 1px 0 #fff;
+        }
+
+        .subtitle {
+            font-size: 11px;
+            color: #666;
+            margin-bottom: 20px;
+            border-bottom: 1px dotted #ccc;
+            padding-bottom: 15px;
+            display: block;
+        }
+
+        /* Web 2.0 Input Field */
+        label {
+            font-size: 11px;
+            font-weight: bold;
+            color: #444;
+            display: block;
+            margin-bottom: 5px;
+        }
+
+        input[type="text"] {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #7f9db9; /* Classic Windows XP blue border */
+            background: #fff;
+            font-family: "Verdana", sans-serif;
+            font-size: 12px;
+            box-sizing: border-box;
+            box-shadow: inset 0 1px 2px rgba(0,0,0,0.1);
+        }
+
+        /* The "Glossy" Button */
+        button {
+            margin-top: 15px;
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #28597a;
+            background: #468ccf; /* Fallback */
+            /* The Glossy Gradient */
+            background: linear-gradient(to bottom, #63a5df 0%, #468ccf 50%, #2968a3 51%, #266099 100%);
+            color: #ffffff;
+            font-family: "Verdana", sans-serif;
+            font-weight: bold;
+            font-size: 13px;
+            border-radius: 4px;
+            cursor: pointer;
+            text-shadow: 0 -1px 0 rgba(0,0,0,0.3);
+            box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+        }
+
+        button:hover {
+            background: linear-gradient(to bottom, #7bbaf1 0%, #5ba0e2 50%, #3a7ab8 51%, #3471ac 100%);
+        }
+
+        button:active {
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.2);
+            background: #266099;
+        }
+
+        /* Output Area */
+        .output-box {
+            margin-top: 20px;
+            background: #fdfdfd;
+            border: 1px solid #dcdcdc;
+            padding: 15px;
+            border-radius: 4px;
+            display: none; /* Hidden by default */
+        }
+
+        textarea {
+            width: 100%;
+            height: 120px;
+            border: 1px solid #ccc;
+            background: #fff;
+            font-family: "Verdana", sans-serif;
+            font-size: 11px;
+            padding: 5px;
+            resize: none;
+            box-sizing: border-box;
+            color: #333;
+        }
+
+        .status {
+            font-size: 11px;
+            margin-top: 10px;
+            text-align: center;
+            font-style: italic;
+        }
+        .error { color: #cc0000; }
+        .success { color: #2e8b57; }
+        .processing { color: #004a80; }
+
+        /* "Beta" Badge */
+        .badge {
+            font-size: 9px;
+            background: #ff9900;
+            color: white;
+            padding: 2px 4px;
+            border-radius: 3px;
+            vertical-align: super;
+            text-shadow: none;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>InstaFetcher <span class="badge">BETA</span></h1>
+        <span class="subtitle">Extract captions from Instagram posts instantly.</span>
+
+        <label for="urlInput">Post URL:</label>
+        <input type="text" id="urlInput" placeholder="http://www.instagram.com/p/..." autocomplete="off">
+        
+        <button id="fetchBtn">Get Caption</button>
+
+        <div class="status" id="statusMsg"></div>
+
+        <div class="output-box" id="outputArea">
+            <label>Caption Text:</label>
+            <textarea id="captionText" readonly></textarea>
+            <button id="copyBtn" style="background: linear-gradient(to bottom, #f2f2f2 0%, #e0e0e0 50%, #cecece 51%, #bfbfbf 100%); color: #333; border: 1px solid #999; margin-top: 10px;">Copy to Clipboard</button>
+        </div>
+    </div>
+
+    <script>
+        const fetchBtn = document.getElementById('fetchBtn');
+        const urlInput = document.getElementById('urlInput');
+        const statusMsg = document.getElementById('statusMsg');
+        const outputArea = document.getElementById('outputArea');
+        const captionText = document.getElementById('captionText');
+        const copyBtn = document.getElementById('copyBtn');
+
+        // NEW STRATEGY: Use CodeTabs Proxy + Instagram oEmbed Endpoint
+        // oEmbed is lighter and less likely to be blocked than the main page.
+        const PROXY_URL = "https://api.codetabs.com/v1/proxy?quest=";
+
+        fetchBtn.addEventListener('click', async () => {
+            const rawUrl = urlInput.value.trim();
+            
+            // Basic Validation
+            if (!rawUrl.includes('instagram.com/')) {
+                showStatus("Error: Please enter a valid Instagram link.", "error");
+                return;
+            }
+
+            // Reset UI
+            showStatus("Contacting server...", "processing");
+            outputArea.style.display = 'none';
+            fetchBtn.disabled = true;
+            fetchBtn.textContent = "Loading...";
+
+            try {
+                // 1. Construct the oEmbed URL
+                // This is an official endpoint that returns JSON data about the post
+                const oembedUrl = `https://www.instagram.com/api/v1/oembed/?url=${encodeURIComponent(rawUrl)}`;
+                
+                // 2. Fetch via Proxy
+                const finalUrl = PROXY_URL + encodeURIComponent(oembedUrl);
+                
+                const response = await fetch(finalUrl);
+                
+                if (!response.ok) {
+                    throw new Error(`Server returned ${response.status}`);
+                }
+
+                const data = await response.json();
+
+                // 3. Extract Title (which is the caption in oEmbed)
+                let caption = data.title;
+
+                if (!caption) {
+                    caption = "No caption found (or post is private).";
+                }
+
+                // 4. Show Result
+                captionText.value = caption;
+                outputArea.style.display = 'block';
+                showStatus("Done!", "success");
+
+            } catch (error) {
+                console.error(error);
+                showStatus("Connection Failed. Instagram blocked the request.", "error");
+            } finally {
+                fetchBtn.disabled = false;
+                fetchBtn.textContent = "Get Caption";
+            }
+        });
+
+        copyBtn.addEventListener('click', () => {
+            captionText.select();
+            document.execCommand('copy'); // Old school "Web 2.0" way, still reliable
+            copyBtn.textContent = "Copied!";
+            setTimeout(() => copyBtn.textContent = "Copy to Clipboard", 2000);
+        });
+
+        function showStatus(text, type) {
+            statusMsg.textContent = text;
+            statusMsg.className = "status " + type;
+        }
+    </script>
+</body>
+</html>
