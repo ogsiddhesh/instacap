@@ -68,6 +68,7 @@
             box-shadow: inset 0 1px 2px rgba(0,0,0,0.1);
         }
 
+        /* Standard Button */
         button {
             margin-top: 15px;
             width: 100%;
@@ -94,6 +95,7 @@
             background: #266099;
         }
 
+        /* Silver Button Override for Copy */
         .btn-silver {
             background: linear-gradient(to bottom, #f2f2f2 0%, #e0e0e0 50%, #cecece 51%, #bfbfbf 100%) !important;
             color: #333 !important;
@@ -146,18 +148,19 @@
             text-shadow: none;
         }
 
+        /* --- FIXED FOOTER --- */
         .footer {
             position: fixed;   
             bottom: 0;         
             left: 0;           
-            width: 100%;      
+            width: 100%;       
             background-color: #dbe2e8; 
             border-top: 1px solid #b5b5b5;
             padding: 12px 0;
             text-align: center;
             font-size: 12px;
             color: #555;
-            z-index: 1000;    
+            z-index: 1000;     
             box-shadow: 0 -2px 10px rgba(0,0,0,0.05);
         }
 
@@ -170,7 +173,6 @@
             padding: 0 5px;
         }
 
-        /* 1 Sec ON, 1 Sec OFF Animation */
         @keyframes blueBlink {
             0%, 49% {
                 text-shadow: 0 0 10px #00BFFF, 0 0 20px #00BFFF;
@@ -225,7 +227,13 @@
         const resetBtn = document.getElementById('resetBtn');
         const inputSection = document.getElementById('inputSection');
 
-        const PROXY_URL = "https://api.codetabs.com/v1/proxy?quest=";
+        // === THE HYDRA ENGINE: MULTIPLE PROXY NODES ===
+        // If Node 1 fails, it automatically jumps to Node 2, then Node 3.
+        const PROXY_NODES = [
+            "https://corsproxy.io/?",                 // Node 1: Fast, usually works
+            "https://api.codetabs.com/v1/proxy?quest=", // Node 2: Reliable fallback
+            "https://api.allorigins.win/raw?url="     // Node 3: 'Raw' mode for JSON
+        ];
 
         fetchBtn.addEventListener('click', async () => {
             const rawUrl = urlInput.value.trim();
@@ -235,47 +243,84 @@
                 return;
             }
 
-            showStatus("Contacting server...", "processing");
+            // UI Cleanup
             fetchBtn.disabled = true;
-            fetchBtn.textContent = "Loading...";
+            fetchBtn.textContent = "Initializing...";
+            outputArea.style.display = 'none';
 
-            try {
-                const oembedUrl = `https://www.instagram.com/api/v1/oembed/?url=${encodeURIComponent(rawUrl)}`;
-                const finalUrl = PROXY_URL + encodeURIComponent(oembedUrl);
+            // Clean URL (Remove query params to avoid tracking detection)
+            // e.g., converts .../p/xyz/?igshid=123 to .../p/xyz/
+            let cleanUrl = rawUrl.split('?')[0]; 
+            // Ensure it ends with / so Instagram doesn't redirect
+            if (!cleanUrl.endsWith('/')) cleanUrl += '/';
+
+            // Prepare the oEmbed target
+            const oembedUrl = `https://www.instagram.com/api/v1/oembed/?url=${encodeURIComponent(cleanUrl)}`;
+
+            // === START REROUTING LOGIC ===
+            let success = false;
+
+            for (let i = 0; i < PROXY_NODES.length; i++) {
+                const proxy = PROXY_NODES[i];
+                showStatus(`Routing via Node ${i + 1}...`, "processing");
                 
-                const response = await fetch(finalUrl);
-                
-                if (!response.ok) {
-                    throw new Error(`Server returned ${response.status}`);
+                try {
+                    const finalUrl = proxy + encodeURIComponent(oembedUrl);
+                    
+                    // Attempt Fetch
+                    // We use 'signal' to timeout fast if a proxy hangs
+                    const controller = new AbortController();
+                    const timeoutId = setTimeout(() => controller.abort(), 8000); // 8 sec timeout
+
+                    const response = await fetch(finalUrl, { signal: controller.signal });
+                    clearTimeout(timeoutId);
+
+                    if (!response.ok) {
+                        throw new Error(`Node ${i+1} Blocked (${response.status})`);
+                    }
+
+                    const data = await response.json();
+                    
+                    // If we got here, IT WORKED!
+                    let caption = data.title;
+                    if (!caption) caption = "No caption found.";
+
+                    // Display Result
+                    captionText.value = caption;
+                    outputArea.style.display = 'block';
+                    inputSection.style.display = 'none';
+                    showStatus("Connection Established. Data Extracted.", "success");
+                    
+                    success = true;
+                    break; // Stop the loop, we are done!
+
+                } catch (error) {
+                    console.log(`Node ${i+1} failed:`, error);
+                    // Loop continues to next proxy...
                 }
-
-                const data = await response.json();
-
-                let caption = data.title;
-                if (!caption) {
-                    caption = "No caption found (or post is private).";
-                }
-
-                captionText.value = caption;
-                
-                outputArea.style.display = 'block';
-                inputSection.style.display = 'none';
-                
-                showStatus("Done!", "success");
-
-            } catch (error) {
-                console.error(error);
-                showStatus("Connection Failed. Instagram blocked the request.", "error");
-                fetchBtn.disabled = false;
-                fetchBtn.textContent = "Get Caption";
             }
+
+            if (!success) {
+                showStatus("All Nodes Blocked. Try again in 1 min or use Desktop.", "error");
+            }
+
+            // Reset Button State
+            fetchBtn.disabled = false;
+            fetchBtn.textContent = "Get Caption";
         });
 
         copyBtn.addEventListener('click', () => {
             captionText.select();
-            document.execCommand('copy'); 
+            // Modern Clipboard API with fallback
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(captionText.value);
+            } else {
+                document.execCommand('copy');
+            }
+            
+            const originalText = copyBtn.textContent;
             copyBtn.textContent = "Copied!";
-            setTimeout(() => copyBtn.textContent = "Copy to Clipboard", 2000);
+            setTimeout(() => copyBtn.textContent = originalText, 2000);
         });
 
         resetBtn.addEventListener('click', () => {
@@ -283,8 +328,6 @@
             captionText.value = '';
             outputArea.style.display = 'none';
             inputSection.style.display = 'block';
-            fetchBtn.disabled = false;
-            fetchBtn.textContent = "Get Caption";
             statusMsg.textContent = '';
             statusMsg.className = 'status';
         });
