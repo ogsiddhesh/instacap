@@ -12,7 +12,9 @@
             color: #333;
             margin: 0;
             padding: 20px;
+            padding-bottom: 60px; 
             display: flex;
+            flex-direction: column;
             justify-content: center;
             align-items: center;
             min-height: 100vh;
@@ -92,6 +94,16 @@
             background: #266099;
         }
 
+        .btn-silver {
+            background: linear-gradient(to bottom, #f2f2f2 0%, #e0e0e0 50%, #cecece 51%, #bfbfbf 100%) !important;
+            color: #333 !important;
+            border: 1px solid #999 !important;
+            text-shadow: 0 1px 0 #fff !important;
+        }
+        .btn-silver:hover {
+            background: linear-gradient(to bottom, #ffffff 0%, #ebebeb 50%, #dbdbdb 51%, #cfcfcf 100%) !important;
+        }
+
         .output-box {
             margin-top: 20px;
             background: #fdfdfd;
@@ -133,26 +145,74 @@
             vertical-align: super;
             text-shadow: none;
         }
+
+        .footer {
+            position: fixed;   
+            bottom: 0;         
+            left: 0;           
+            width: 100%;      
+            background-color: #dbe2e8; 
+            border-top: 1px solid #b5b5b5;
+            padding: 12px 0;
+            text-align: center;
+            font-size: 12px;
+            color: #555;
+            z-index: 1000;    
+            box-shadow: 0 -2px 10px rgba(0,0,0,0.05);
+        }
+
+        .glow-link {
+            text-decoration: none;
+            color: #444;
+            font-weight: bold;
+            transition: 0.3s;
+            cursor: pointer;
+            padding: 0 5px;
+        }
+
+        /* 1 Sec ON, 1 Sec OFF Animation */
+        @keyframes blueBlink {
+            0%, 49% {
+                text-shadow: 0 0 10px #00BFFF, 0 0 20px #00BFFF;
+                color: #007bff;
+            }
+            50%, 100% {
+                text-shadow: none;
+                color: #444;
+            }
+        }
+
+        .glow-link:hover {
+            animation: blueBlink 2s infinite; 
+        }
+
     </style>
 </head>
 <body>
 
     <div class="container">
-        <h1>InstaCap <span class="badge"></span></h1>
+        <h1>InstaCap <span class="badge">BETA</span></h1>
         <span class="subtitle">Extract captions from Instagram posts instantly.</span>
 
-        <label for="urlInput">Post URL:</label>
-        <input type="text" id="urlInput" placeholder="http://www.instagram.com//..." autocomplete="off">
-        
-        <button id="fetchBtn">Get Caption</button>
+        <div id="inputSection">
+            <label for="urlInput">Post URL:</label>
+            <input type="text" id="urlInput" placeholder="http://www.instagram.com/p/..." autocomplete="off">
+            <button id="fetchBtn">Get Caption</button>
+        </div>
 
         <div class="status" id="statusMsg"></div>
 
         <div class="output-box" id="outputArea">
             <label>Caption Text:</label>
             <textarea id="captionText" readonly></textarea>
-            <button id="copyBtn" style="background: linear-gradient(to bottom, #f2f2f2 0%, #e0e0e0 50%, #cecece 51%, #bfbfbf 100%); color: #333; border: 1px solid #999; margin-top: 10px;">Copy to Clipboard</button>
+            
+            <button id="copyBtn" class="btn-silver" style="margin-top: 10px;">Copy to Clipboard</button>
+            <button id="resetBtn" style="margin-top: 10px;">Get Another Post Caption</button>
         </div>
+    </div>
+
+    <div class="footer">
+        &copy; 2025 <a href="https://siddhesh.site" target="_blank" class="glow-link">Siddhesh Chaube</a> | All Rights Reserved.
     </div>
 
     <script>
@@ -162,6 +222,8 @@
         const outputArea = document.getElementById('outputArea');
         const captionText = document.getElementById('captionText');
         const copyBtn = document.getElementById('copyBtn');
+        const resetBtn = document.getElementById('resetBtn');
+        const inputSection = document.getElementById('inputSection');
 
         const PROXY_URL = "https://api.codetabs.com/v1/proxy?quest=";
 
@@ -174,14 +236,11 @@
             }
 
             showStatus("Contacting server...", "processing");
-            outputArea.style.display = 'none';
             fetchBtn.disabled = true;
             fetchBtn.textContent = "Loading...";
 
             try {
-               
                 const oembedUrl = `https://www.instagram.com/api/v1/oembed/?url=${encodeURIComponent(rawUrl)}`;
-                
                 const finalUrl = PROXY_URL + encodeURIComponent(oembedUrl);
                 
                 const response = await fetch(finalUrl);
@@ -193,19 +252,20 @@
                 const data = await response.json();
 
                 let caption = data.title;
-
                 if (!caption) {
                     caption = "No caption found (or post is private).";
                 }
 
                 captionText.value = caption;
+                
                 outputArea.style.display = 'block';
+                inputSection.style.display = 'none';
+                
                 showStatus("Done!", "success");
 
             } catch (error) {
                 console.error(error);
                 showStatus("Connection Failed. Instagram blocked the request.", "error");
-            } finally {
                 fetchBtn.disabled = false;
                 fetchBtn.textContent = "Get Caption";
             }
@@ -218,12 +278,21 @@
             setTimeout(() => copyBtn.textContent = "Copy to Clipboard", 2000);
         });
 
+        resetBtn.addEventListener('click', () => {
+            urlInput.value = '';
+            captionText.value = '';
+            outputArea.style.display = 'none';
+            inputSection.style.display = 'block';
+            fetchBtn.disabled = false;
+            fetchBtn.textContent = "Get Caption";
+            statusMsg.textContent = '';
+            statusMsg.className = 'status';
+        });
+
         function showStatus(text, type) {
             statusMsg.textContent = text;
             statusMsg.className = "status " + type;
         }
     </script>
 </body>
-
 </html>
-
